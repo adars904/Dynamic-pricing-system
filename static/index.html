@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dynamic Pricing System</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+
+    header {
+      background: #0f172a;
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header span { font-size: 13px; color: #94a3b8; }
+
+    .container { max-width: 960px; margin: 32px auto; padding: 0 20px; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid #e2e8f0;
+    }
+    .card h2 { font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase;
+                letter-spacing: 0.06em; margin-bottom: 20px; }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+
+    .field label { display: block; font-size: 13px; color: #475569; margin-bottom: 6px; }
+    .field input[type=range] { width: 100%; accent-color: #3b82f6; }
+    .field select {
+      width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1;
+      border-radius: 8px; font-size: 14px; background: white; color: #1a1a1a;
+    }
+    .val-row { display: flex; justify-content: space-between; margin-top: 4px; }
+    .val-row .val { font-size: 15px; font-weight: 600; color: #1e293b; }
+    .val-row .unit { font-size: 11px; color: #94a3b8; }
+
+    .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; min-height: 28px; }
+    .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px;
+      border-radius: 999px; display: inline-block;
+    }
+    .badge-high    { background: #dcfce7; color: #15803d; }
+    .badge-mid     { background: #f1f5f9; color: #475569; }
+    .badge-low     { background: #fee2e2; color: #dc2626; }
+    .badge-peak    { background: #fef9c3; color: #a16207; }
+    .badge-weekend { background: #ede9fe; color: #7c3aed; }
+
+    .metric { background: #f8fafc; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; }
+    .metric .mlabel { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+    .metric .mval { font-size: 24px; font-weight: 700; color: #0f172a; }
+    .metric .mdelta { font-size: 12px; margin-top: 4px; }
+    .delta-up   { color: #16a34a; }
+    .delta-down { color: #dc2626; }
+
+    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .bar-label { font-size: 13px; color: #475569; min-width: 150px; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-dt { background: #3b82f6; }
+    .dot-lr { background: #10b981; }
+    .dot-nn { background: #f43f5e; }
+    .bar-track { flex: 1; background: #f1f5f9; border-radius: 4px; height: 10px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .fill-dt { background: #3b82f6; }
+    .fill-lr { background: #10b981; }
+    .fill-nn { background: #f43f5e; }
+    .bar-price { font-size: 13px; font-weight: 600; min-width: 80px; text-align: right; color: #1e293b; }
+
+    .ensemble-box {
+      background: #0f172a; border-radius: 12px; padding: 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .ensemble-box .elabel { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+    .ensemble-box .eprice { font-size: 36px; font-weight: 700; color: white; }
+    .ensemble-box .edesc  { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .ensemble-badge {
+      background: #1e3a5f; color: #60a5fa;
+      font-size: 12px; font-weight: 600;
+      padding: 8px 16px; border-radius: 8px;
+    }
+
+    .status { font-size: 12px; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 16px; }
+    .status.ok  { background: #dcfce7; color: #15803d; }
+    .status.err { background: #fee2e2; color: #dc2626; }
+    .status.loading { background: #fef9c3; color: #a16207; }
+
+    @media (max-width: 600px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+      .ensemble-box { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Dynamic Pricing System</h1>
+    <span>Decision Tree · Linear Regression · Neural Network</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- API Status -->
+  <div id="apiStatus" class="status loading">Connecting to API...</div>
+
+  <!-- Inputs -->
+  <div class="card">
+    <h2>Input Parameters</h2>
+    <div class="grid2">
+      <div class="field">
+        <label>Base Price (₹)</label>
+        <input type="range" id="basePrice" min="50" max="5000" step="10" value="500">
+        <div class="val-row"><span class="val" id="basePriceVal">₹500</span><span class="unit">product price</span></div>
+      </div>
+      <div class="field">
+        <label>Discount (%)</label>
+        <input type="range" id="discount" min="0" max="80" step="1" value="20">
+        <div class="val-row"><span class="val" id="discountVal">20%</span><span class="unit">listed discount</span></div>
+      </div>
+      <div class="field">
+        <label>Review Count</label>
+        <input type="range" id="users" min="0" max="10000" step="50" value="500">
+        <div class="val-row"><span class="val" id="usersVal">500</span><span class="unit">total reviews</span></div>
+      </div>
+      <div class="field">
+        <label>Hour of Day</label>
+        <input type="range" id="hour" min="0" max="23" step="1" value="19">
+        <div class="val-row"><span class="val" id="hourVal">19:00</span><span class="unit">24h clock</span></div>
+      </div>
+      <div class="field">
+        <label>Product Rating</label>
+        <input type="range" id="rating" min="1" max="5" step="0.1" value="4.5">
+        <div class="val-row"><span class="val" id="ratingVal">4.5 ⭐</span><span class="unit">out of 5</span></div>
+      </div>
+      <div class="field">
+        <label>Day of Week</label>
+        <select id="dayOfWeek">
+          <option value="0">Monday</option>
+          <option value="1">Tuesday</option>
+          <option value="2">Wednesday</option>
+          <option value="3">Thursday</option>
+          <option value="4">Friday</option>
+          <option value="5" selected>Saturday</option>
+          <option value="6">Sunday</option>
+        </select>
+      </div>
+    </div>
+    <div class="tags" id="tagsRow"></div>
+  </div>
+
+  <!-- Model Outputs -->
+  <div class="grid3">
+    <div class="metric">
+      <div class="mlabel">Decision Tree</div>
+      <div class="mval" id="dtPrice">—</div>
+      <div class="mdelta" id="dtDelta"></div>
+    </div>
+    <div class="metric">
+      <div class="mlabel">Linear Regression</div>
+      <div class="mval" id="lrPrice">—</div>
+      <div class="mdelta" id="lrDelta"></div>
+    </div>
+    <div class="metric">
+      <div class="mlabel">Neural Network</div>
+      <div class="mval" id="nnPrice">—</div>
+      <div class="mdelta" id="nnDelta"></div>
+    </div>
+  </div>
+
+  <!-- Bar Chart -->
+  <div class="card">
+    <h2>Model Comparison</h2>
+    <div id="barsContainer"></div>
+  </div>
+
+  <!-- Ensemble -->
+  <div class="ensemble-box">
+    <div>
+      <div class="elabel">Recommended Price (Ensemble Average)</div>
+      <div class="eprice" id="ensemblePrice">—</div>
+      <div class="edesc" id="ensembleDesc"></div>
+    </div>
+    <div class="ensemble-badge" id="ensembleBadge">Avg of 3 models</div>
+  </div>
+
+</div>
+
+<script>
+  const API = "http://localhost:8000";
+
+  // Check API health on load
+  fetch(API + "/health")
+    .then(r => r.json())
+    .then(() => {
+      document.getElementById("apiStatus").textContent = "API connected";
+      document.getElementById("apiStatus").className = "status ok";
+    })
+    .catch(() => {
+      document.getElementById("apiStatus").textContent = "API offline — run: uvicorn main:app --reload";
+      document.getElementById("apiStatus").className = "status err";
+    });
+
+  function fmt(v) {
+    return "₹" + Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  }
+
+  function delta(val, base) {
+    const d = ((val - base) / base * 100).toFixed(1);
+    return { text: (d >= 0 ? "+" : "") + d + "% vs base", cls: d >= 0 ? "delta-up" : "delta-down" };
+  }
+
+  async function update() {
+    const base     = +document.getElementById("basePrice").value;
+    const discount = +document.getElementById("discount").value;
+    const users    = +document.getElementById("users").value;
+    const hour     = +document.getElementById("hour").value;
+    const rating   = +document.getElementById("rating").value;
+    const day      = +document.getElementById("dayOfWeek").value;
+
+    // Update display values
+    document.getElementById("basePriceVal").textContent = "₹" + base.toLocaleString("en-IN");
+    document.getElementById("discountVal").textContent  = discount + "%";
+    document.getElementById("usersVal").textContent     = users.toLocaleString("en-IN");
+    document.getElementById("hourVal").textContent      = String(hour).padStart(2,"0") + ":00";
+    document.getElementById("ratingVal").textContent    = rating.toFixed(1) + " ⭐";
+
+    // Call API
+    try {
+      const res = await fetch(API + "/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating, review_count: users, base_price: base,
+          discount_percentage: discount, hour, day_of_week: day
+        })
+      });
+      const data = await res.json();
+
+      // Tags
+      const tags = document.getElementById("tagsRow");
+      const demandLabels = ["Low demand", "Normal demand", "High demand"];
+      const demandClasses = ["badge-low", "badge-mid", "badge-high"];
+      tags.innerHTML = `<span class="badge ${demandClasses[data.demand_level]}">${demandLabels[data.demand_level]}</span>`;
+      if (data.is_peak_hour) tags.innerHTML += `<span class="badge badge-peak">Peak Hour (17–21)</span>`;
+      if (data.is_weekend)   tags.innerHTML += `<span class="badge badge-weekend">Weekend</span>`;
+      if (discount > 40)     tags.innerHTML += `<span class="badge badge-low">Heavy Discount</span>`;
+
+      // Metrics
+      const models = [
+        { id: "dt", val: data.decision_tree },
+        { id: "lr", val: data.linear_regression },
+        { id: "nn", val: data.neural_network },
+      ];
+      models.forEach(m => {
+        document.getElementById(m.id + "Price").textContent = fmt(m.val);
+        const d = delta(m.val, base);
+        document.getElementById(m.id + "Delta").textContent = d.text;
+        document.getElementById(m.id + "Delta").className = "mdelta " + d.cls;
+      });
+
+      // Bars
+      const maxVal = Math.max(data.decision_tree, data.linear_regression, data.neural_network) * 1.1;
+      const bars = [
+        { label: "Decision Tree",     val: data.decision_tree,     dot: "dot-dt", fill: "fill-dt" },
+        { label: "Linear Regression", val: data.linear_regression, dot: "dot-lr", fill: "fill-lr" },
+        { label: "Neural Network",    val: data.neural_network,    dot: "dot-nn", fill: "fill-nn" },
+      ];
+      document.getElementById("barsContainer").innerHTML = bars.map(b => `
+        <div class="bar-row">
+          <div class="bar-label"><div class="dot ${b.dot}"></div>${b.label}</div>
+          <div class="bar-track"><div class="bar-fill ${b.fill}" style="width:${(b.val/maxVal*100).toFixed(1)}%"></div></div>
+          <div class="bar-price">${fmt(b.val)}</div>
+        </div>`).join("");
+
+      // Ensemble
+      const ed = delta(data.ensemble, base);
+      document.getElementById("ensemblePrice").textContent = fmt(data.ensemble);
+      document.getElementById("ensembleDesc").textContent  = `${ed.text} · base was ${fmt(base)}`;
+      document.getElementById("ensembleBadge").textContent = `${ed.text.startsWith("+") ? "📈" : "📉"} Ensemble`;
+
+    } catch (e) {
+      console.error("API error:", e);
+    }
+  }
+
+  ["basePrice","discount","users","hour","rating","dayOfWeek"].forEach(id => {
+    document.getElementById(id).addEventListener("input", update);
+  });
+
+  update();
+</script>
+
+</body>
+</html>
